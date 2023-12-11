@@ -17,26 +17,44 @@ struct process_instrumentation_callback_info_t {
     bridge_function_t callback;
 };
 
-//TODO: walk the stack by hand ?
-
-void PrintFunctionName(DWORD64 address) {
+void PrintStack(CONTEXT* pCtx) {
     HANDLE process = GetCurrentProcess();
+    DWORD thread = GetCurrentThreadId();
 
+    const int maxFrames = 20;
 
-    // Allocate a buffer for the symbol information
+    void* RIP = (void*)pCtx->Rip;
+    void* RSP = (void*)pCtx->Rsp;
+
+    // buffer for string to live in
     DWORD64 displacement = 0;
     char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
     PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
     pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
     pSymbol->MaxNameLen = MAX_SYM_NAME;
 
-    // Retrieve the symbol information for the given address
-    if (SymFromAddr(process, address, &displacement, pSymbol)) {
-        printf("CALLBACK: returning to function: %s\n", pSymbol->Name);
-    } else {
-        printf("CALLBACK: returning to unknown function 0x%llx.\n", address);
+    // lazily hard coded buffer
+    char full_print_buffer[(MAX_SYM_NAME * sizeof(TCHAR) + 32) * maxFrames];
+
+    // walk the stack (starting with RIP and then walking RSP)
+    int push = 0;
+    void** pStack = (void**)RSP;
+    for(int i = -1; i < maxFrames; i++) {
+        void* returnTo = RIP;
+        if(i > -1) returnTo = pStack[i];
+        if(returnTo == NULL) break;
+
+        // print
+        if (SymFromAddr(process, (DWORD64)returnTo, &displacement, pSymbol)) {
+            push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p %s\n", thread, i+1, returnTo, pSymbol->Name);
+        } else {
+            push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p UNKNOWN FUNCTION\n", thread, i+1, returnTo);
+        }
     }
+    full_print_buffer[push] = '\0';
+    printf("STACK DUMP:\n%s", full_print_buffer);
 }
+
 
 extern void bridge(); // ASM bridge for stack setup
 volatile DWORD tlsIndex = 0;
@@ -91,9 +109,8 @@ void callback(CONTEXT* ctx) {
         return;
     }
 
-    // printf("CALLBACK: returning to 0x%p\n", (void*)ctx->Rip);
     // print the callstack for callback
-    PrintFunctionName(ctx->Rip);
+    PrintStack(ctx);
 
     set_thread_handling_syscall(false);
     RtlRestoreContext(ctx, NULL);
