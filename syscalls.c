@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <Windows.h>
+#include <winternl.h>
 
 #include "syscalls.h"
 
@@ -22,33 +23,27 @@ syscall_values values = {
         35,// query
 };
 
-
-extern NTSTATUS create_thread_syscall(uint32_t syscall_id, void* entrypoint, void* argument, OUT PHANDLE hThread);
-extern NTSTATUS virtual_alloc_syscall(uint32_t syscall_id, void** address, uint64_t size, uint32_t allocation, uint32_t protection);
-extern NTSTATUS virtual_protect_syscall(uint32_t syscall_id, void* address, uint64_t size, uint32_t protection, uint32_t * old);
-extern NTSTATUS virtual_query_syscall(uint32_t syscall_id, void* address, PMEMORY_BASIC_INFORMATION buffer, uint64_t length, uint32_t * resultLength);
 extern void set_nt_syscall_addr(uint8_t * ntdll_syscall_addr);
 
-HANDLE create_thread(void* entrypoint, void* argument) {
-    if (!entrypoint) {
-        printf("null entrypoint on createthread call");
-        return NULL;
-    }
 
-    HANDLE hThread = NULL;
+// generic syscall maker
+extern NTSTATUS make_syscall(uint32_t syscall_id, uint32_t num_args, ...);
 
-    printf("create_thread(%d, 0x%p, 0x%p, 0x%p);\n",values.create_thread, entrypoint, argument, &hThread);
-
-    NTSTATUS status = create_thread_syscall(values.create_thread, entrypoint, argument, &hThread);
-    printf("status: 0x%lx;\n", status);
-    if (status < 0) return NULL;
-
-    return hThread;
+// example implementation of syscaller
+NTSTATUS NTAPI NtAllocateVirtualMemory(
+        IN HANDLE               ProcessHandle,
+        IN OUT PVOID            *BaseAddress,
+        IN ULONG                ZeroBits,
+        IN OUT PULONG           RegionSize,
+        IN ULONG                AllocationType,
+        IN ULONG                Protect
+) {
+    return make_syscall(
+            values.virtual_alloc, 6,
+            ProcessHandle, BaseAddress, ZeroBits,
+            RegionSize, AllocationType, Protect);
 }
 
-void thread_entry(void* arg) {
-    printf("from_thread %d\n", (int)arg);
-}
 
 void* get_syscall_addr() {
     char* addr = GetProcAddress(LoadLibraryA("ntdll.dll"),"ZwClearEvent");
@@ -59,11 +54,19 @@ void* get_syscall_addr() {
     return addr;
 }
 
-
 void demo_syscall() {
     void* syscall = get_syscall_addr();
     printf("init safe syscall @ 0x%p\n", syscall);
     set_nt_syscall_addr(syscall);
 
-    create_thread(thread_entry, (void*)10);
+
+    printf("testing syscall...\n");
+    PVOID rb = 0;
+    ULONG size = 0x1000;
+    NTSTATUS status = NtAllocateVirtualMemory(GetCurrentProcess(), rb, 0, &size, MEM_RESERVE, PAGE_NOACCESS);
+    if(NT_SUCCESS(status)) {
+        printf("reserved @ 0x%p\n", rb);
+    } else {
+        printf("alloc failed!");
+    }
 }

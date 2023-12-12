@@ -208,4 +208,124 @@ set_nt_syscall_addr PROC
     ret
 set_nt_syscall_addr ENDP
 
+
+
+; make_syscall(SYSCALL_INDEX, NUM_ARGS, arg1, arg2, arg3...)
+; where NUM_ARGS is the number of variable "arg" arguments
+; will do
+; syscall(arg1, arg2, arg3, arg4, arg5, ...)
+; and return RAX from the syscall
+make_syscall PROC
+    ; push non-volatile registers
+    push r12
+    push r13
+    push r14
+    push rbx
+    push rbp
+    push rsi
+    push rdi
+
+
+    ; DEBUGGING STACK ARGS
+    mov rbx, [RSP+78h] ; PAGE_NOACCESS
+    mov rbx, [RSP+70h] ; MEM_RESERVE
+    mov rbx, [RSP+68h] ; pSize
+    mov rbx, [RSP+60h] ; Zero
+    mov rbx, r9 ; RB
+    mov rbx, r8 ; PROC
+    mov rbx, rdx ; COUNT
+    mov rbx, rcx ; SYSCALL
+
+
+    mov r12, rcx    ; r12 = SYSCALL ID
+    mov r13, rdx    ; r13 = NUM SYSCALL ARGS
+    mov r14, r13
+    sub r14, 2      ; r14 = NUM STACK ARGS
+
+    ; check if we need to copy
+    ; stack args for syscall
+    cmp r14, 2
+    jle skip_stackcopy  ; if(r14 > 2) {
+
+    mov rbx, rsp
+
+    mov rcx, r14
+    sub rcx, 2          ; rax = r14-2 | num args to copy to the stack
+
+    ; make space in our destimation
+    mov rax, r14
+    imul rax, rax, 8    ; rax = rcx*2
+    sub rsp, rax
+
+    ; TODO: this is very clearly
+    ; overwriting something important
+    ; because RAX is 10
+    ; and RCX is 2
+    lea rsi, [rbx + 58h + rax]      ; Source pointer (last arg)
+    lea rdi, [rsp]              ; Destimation
+
+    ; do copyS
+    std                             ; backwards copying
+    rep movsq                       ; copy values
+    cld                             ; clear direction
+
+skip_stackcopy:         ; }
+
+    ; shift register arguments backwards by two positions
+    mov rcx, r8        ; r8 becomes our new RCX
+    mov rdx, r9        ; r9 becomes our new RDX
+
+    ; check if >2 args
+    cmp r13, 2
+    jle call_syscall
+
+    ; copy arg3 to r8
+    mov r8, [rbx+58h]
+
+    ; check if >3 args
+    cmp r13, 3
+    jle call_syscall
+
+    ; copy arg to r8
+    mov r9, [rbx+60h]
+
+call_syscall:
+    ; Perform the system call
+
+    ; DEBUG STACK ARGS
+    ; mov rbx, rcx
+    ; mov rbx, rdx
+    ; mov rbx, r8
+    ; mov rbx, r9
+    mov rbx, [rsp+8h]
+    mov rbx, [rsp]
+
+    sub rsp, 20h ; shadow pool
+    call syscall_idx
+
+    cmp r14, 2
+    jle finish_syscall
+
+    ; Restore shifted stack args
+    mov rcx, r14
+    sub rcx, 2          ; rax = r14-2 | num args to copy to the stack
+
+    ; make space in our destimation
+    mov rbx, rcx
+    imul rbx, rbx, 8    ; rax = rcx*2
+    add rsp, rbx
+
+finish_syscall:
+    ; Restore original value of r12 and other registers
+    pop rdi
+    pop rsi
+    pop rbp
+    pop rbx
+    pop r14
+    pop r13
+    pop r12
+
+    ret
+make_syscall ENDP
+
 END
