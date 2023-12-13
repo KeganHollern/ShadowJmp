@@ -209,14 +209,8 @@ set_nt_syscall_addr PROC
 set_nt_syscall_addr ENDP
 
 
-
-; make_syscall(SYSCALL_INDEX, NUM_ARGS, arg1, arg2, arg3...)
-; where NUM_ARGS is the number of variable "arg" arguments
-; will do
-; syscall(arg1, arg2, arg3, arg4, arg5, ...)
-; and return RAX from the syscall
 make_syscall PROC
-    ; push non-volatile registers
+    ; Save non-volatile registers
     push r12
     push r13
     push r14
@@ -225,98 +219,56 @@ make_syscall PROC
     push rsi
     push rdi
 
-
-    ; DEBUGGING STACK ARGS
-    mov rbx, [RSP+78h] ; PAGE_NOACCESS
-    mov rbx, [RSP+70h] ; MEM_RESERVE
-    mov rbx, [RSP+68h] ; pSize
-    mov rbx, [RSP+60h] ; Zero
-    mov rbx, r9 ; RB
-    mov rbx, r8 ; PROC
-    mov rbx, rdx ; COUNT
-    mov rbx, rcx ; SYSCALL
-
-
+    ; Prepare for syscall
     mov r12, rcx    ; r12 = SYSCALL ID
     mov r13, rdx    ; r13 = NUM SYSCALL ARGS
-    mov r14, r13
-    sub r14, 2      ; r14 = NUM STACK ARGS
+    lea rbx, [rsp + 20h + 8*rdx] ; rbx points to first stack argument
 
-    ; check if we need to copy
-    ; stack args for syscall
-    cmp r14, 2
-    jle skip_stackcopy  ; if(r14 > 2) {
+    ; Calculate number of stack arguments
+    mov r14, rdx
+    sub r14, 2
+    jle skip_stackcopy  ; Jump if no stack arguments
 
-    mov rbx, rsp
+    ; Prepare stack space for copying arguments
+    mov rcx, r14       ; Number of arguments to copy
+    shl rcx, 3         ; rcx *= 8, for byte size
+    sub rsp, rcx       ; Allocate stack space
 
-    mov rcx, r14
-    sub rcx, 2          ; rax = r14-2 | num args to copy to the stack
+    ; Copy stack arguments
+    lea rsi, [rbx - 8] ; Point to last stack argument
+    lea rdi, [rsp]     ; Destination
+    std                ; Set direction flag for backward copying
+    rep movsq          ; Copy stack arguments
+    cld                ; Clear direction flag
 
-    ; make space in our destimation
-    mov rax, r14
-    imul rax, rax, 8    ; rax = rcx*2
-    sub rsp, rax
-
-    ; TODO: this is very clearly
-    ; overwriting something important
-    ; because RAX is 10
-    ; and RCX is 2
-    lea rsi, [rbx + 58h + rax]      ; Source pointer (last arg)
-    lea rdi, [rsp]              ; Destimation
-
-    ; do copyS
-    std                             ; backwards copying
-    rep movsq                       ; copy values
-    cld                             ; clear direction
-
-skip_stackcopy:         ; }
-
-    ; shift register arguments backwards by two positions
-    mov rcx, r8        ; r8 becomes our new RCX
-    mov rdx, r9        ; r9 becomes our new RDX
-
-    ; check if >2 args
+skip_stackcopy:
+    ; Set up syscall arguments
+    mov rcx, r8        ; First argument
+    mov rdx, r9        ; Second argument
     cmp r13, 2
-    jle call_syscall
+    jle call_syscall   ; Jump if only two arguments
 
-    ; copy arg3 to r8
-    mov r8, [rbx+58h]
-
-    ; check if >3 args
+    mov r8, [rbx - 8*3] ; Third argument
     cmp r13, 3
-    jle call_syscall
+    jle call_syscall   ; Jump if only three arguments
 
-    ; copy arg to r8
-    mov r9, [rbx+60h]
+    mov r9, [rbx - 8*4] ; Fourth argument
 
 call_syscall:
     ; Perform the system call
+    sub rsp, 28h       ; Shadow space for syscall
+    call syscall_idx   ; Call the syscall routine
+    add rsp, 28h       ; Clean up the shadow space
 
-    ; DEBUG STACK ARGS
-    ; mov rbx, rcx
-    ; mov rbx, rdx
-    ; mov rbx, r8
-    ; mov rbx, r9
-    mov rbx, [rsp+8h]
-    mov rbx, [rsp]
-
-    sub rsp, 20h ; shadow pool
-    call syscall_idx
-
-    cmp r14, 2
-    jle finish_syscall
-
-    ; Restore shifted stack args
+    ; Restore the stack if necessary
+    cmp r14, 0
+    jle finish_syscall ; Jump if no stack to restore
     mov rcx, r14
-    sub rcx, 2          ; rax = r14-2 | num args to copy to the stack
-
-    ; make space in our destimation
-    mov rbx, rcx
-    imul rbx, rbx, 8    ; rax = rcx*2
-    add rsp, rbx
+    shl rcx, 3         ; rcx *= 8, for byte size
+    add rsp, rcx       ; Reclaim stack space
 
 finish_syscall:
-    ; Restore original value of r12 and other registers
+    ; Restore registers
     pop rdi
     pop rsi
     pop rbp

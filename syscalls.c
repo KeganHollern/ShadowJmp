@@ -44,6 +44,16 @@ NTSTATUS NTAPI NtAllocateVirtualMemory(
             RegionSize, AllocationType, Protect);
 }
 
+#include <intrin.h>
+#pragma intrinsic(__movsq)
+
+void* copy_test() {
+    unsigned __int64 a1[10];
+    unsigned __int64 a2[10] = {950, 850, 750, 650, 550, 450, 350, 250,
+                               150, 50};
+
+    __movsq(a1, a2, 10);
+}
 
 void* get_syscall_addr() {
     char* addr = GetProcAddress(LoadLibraryA("ntdll.dll"),"ZwClearEvent");
@@ -63,10 +73,11 @@ void demo_syscall() {
     printf("testing syscall...\n");
     PVOID rb = 0;
     ULONG size = 0x1000;
-    NTSTATUS status = NtAllocateVirtualMemory(GetCurrentProcess(), rb, 0, &size, MEM_RESERVE, PAGE_NOACCESS);
+    NTSTATUS status = NtAllocateVirtualMemory(GetCurrentProcess(), rb, 0, &size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if(NT_SUCCESS(status)) {
         printf("reserved @ 0x%p\n", rb);
     } else {
         printf("alloc failed!");
+        exit(2);
     }
 }
