@@ -1,4 +1,36 @@
+.data
+
+ntSyscall QWORD 0h
+
 .code
+
+; call any arbitrary syscall
+; pass syscall index in r12d
+syscall_idx PROC
+    xor rax, rax    ; clear rax
+    mov r10, rcx    ; 1st arg goes on r10
+    mov eax, r12d   ; syscall index onto eax
+
+    ; if ntSyscall is set, we jmp to it
+    ; instead of do our own syscall
+    mov rbx, ntSyscall
+    test rbx, rbx
+    jz default_syscall
+
+    jmp ntSyscall   ; perform syscall from redirector
+
+default_syscall:
+    syscall
+    ret
+syscall_idx ENDP
+
+; set target `syscall; ret;` for jmp
+set_nt_syscall_addr PROC
+    mov ntSyscall, rcx
+    ret
+set_nt_syscall_addr ENDP
+
+
 
 make_syscall PROC
     ; 1. setup fake stack & args
@@ -81,10 +113,7 @@ do_syscall:
     sub rsp, 20h
 
     ; perform syscall
-    sub rsp, 8h
-    mov r10, rcx
-    syscall
-    add rsp, 8h
+    call syscall_idx
 
     ; clean shadowpool
     add rsp, 20h
