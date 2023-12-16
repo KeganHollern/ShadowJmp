@@ -17,44 +17,42 @@ struct process_instrumentation_callback_info_t {
     bridge_function_t callback;
 };
 
-void PrintStack(CONTEXT* pCtx) {
+void PrintStackAI(CONTEXT* pCtx) {
+    if (pCtx == NULL) {
+        printf("Context is null\n");
+        return;
+    }
+
     HANDLE process = GetCurrentProcess();
     DWORD thread = GetCurrentThreadId();
 
     const int maxFrames = 20;
-
     void* RIP = (void*)pCtx->Rip;
     void* RSP = (void*)pCtx->Rsp;
 
-    // buffer for string to live in
-    DWORD64 displacement = 0;
     char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
     PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
     pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
     pSymbol->MaxNameLen = MAX_SYM_NAME;
 
-    // lazily hard coded buffer
     char full_print_buffer[(MAX_SYM_NAME * sizeof(TCHAR) + 32) * maxFrames];
-
-    // walk the stack (starting with RIP and then walking RSP)
     int push = 0;
-    void** pStack = (void**)RSP;
-    for(int i = -1; i < maxFrames; i++) {
-        void* returnTo = RIP;
-        if(i > -1) returnTo = pStack[i];
-        if(returnTo == NULL) break;
 
-        // print
+    void** pStack = (void**)RSP;
+    for (int i = -1; i < maxFrames; i++) {
+        void* returnTo = (i == -1) ? RIP : pStack[i];
+        if (returnTo == NULL) break;
+
+        DWORD64 displacement = 0;
         if (SymFromAddr(process, (DWORD64)returnTo, &displacement, pSymbol)) {
-            push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p %s\n", thread, i+1, returnTo, pSymbol->Name);
+            push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p %s\n", thread, i + 1, returnTo, pSymbol->Name);
         } else {
-            push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p UNKNOWN FUNCTION\n", thread, i+1, returnTo);
+            push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p\n", thread, i + 1, returnTo);
         }
     }
     full_print_buffer[push] = '\0';
     printf("STACK DUMP:\n%s", full_print_buffer);
 }
-
 
 extern void bridge(); // ASM bridge for stack setup
 volatile DWORD tlsIndex = 0;
@@ -110,7 +108,7 @@ void callback(CONTEXT* ctx) {
     }
 
     // print the callstack for callback
-    PrintStack(ctx);
+    PrintStackAI(ctx);
 
     set_thread_handling_syscall(false);
     RtlRestoreContext(ctx, NULL);

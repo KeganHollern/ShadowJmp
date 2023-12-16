@@ -79,22 +79,35 @@ void thread_addr(void* param) {
 }
 
 void demo_syscall() {
-    //void* syscall = get_syscall_addr();
-    //printf("init safe syscall @ 0x%p\n", syscall);
-    //set_nt_syscall_addr(syscall);
+    void* syscall = get_syscall_addr();
+    printf("init safe syscall @ 0x%p\n", syscall);
+    set_nt_syscall_addr(syscall);
 
 
     printf("testing syscall...\n");
 
+    // example virtual alloc
+    void* base = NULL;
+    ULONG size = 0x1000;
+    NTSTATUS status = NtAllocateVirtualMemory(
+            GetCurrentProcess(), &base, 0, &size,
+            MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if(NT_SUCCESS(status)) {
+        printf("memory allocated!: 0x%p\n", base);
+    } else {
+        printf("memory alloc failed! 0x%lx\n", status);
+        exit(3);
 
+    }
+
+    // --- example CreateThread
     HANDLE hThread = NULL;
-
-    NTSTATUS status = NtCreateThreadEx(
+    status = NtCreateThreadEx(
             &hThread, 0x1FFFFF, NULL,
-            GetCurrentProcess(), thread_addr, NULL,
+            GetCurrentProcess(), thread_addr, base,
             0, 0, 0, 0, NULL);
     if(NT_SUCCESS(status)) {
-        printf("thread created! 0x%lx.\n", status);
+        printf("thread created!\n");
     } else {
         printf("thread failed!  0x%lx.\n", status);
         exit(2);
