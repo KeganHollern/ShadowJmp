@@ -41,10 +41,10 @@ void PrintStackAI(CONTEXT* pCtx) {
     void** pStack = (void**)RSP;
     for (int i = -1; i < maxFrames; i++) {
         void* returnTo = (i == -1) ? RIP : pStack[i];
-        if (returnTo == NULL) break;
+        //if (returnTo == NULL) break;
 
         DWORD64 displacement = 0;
-        if (SymFromAddr(process, (DWORD64)returnTo, &displacement, pSymbol)) {
+        if (returnTo && SymFromAddr(process, (DWORD64)returnTo, &displacement, pSymbol)) {
             push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p %s\n", thread, i + 1, returnTo, pSymbol->Name);
         } else {
             push += sprintf(&(full_print_buffer[push]), "\t[%lu] stack[%d]: 0x%p\n", thread, i + 1, returnTo);

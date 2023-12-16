@@ -1,6 +1,7 @@
 .data
 
 ntSyscall QWORD 0h
+fakeStack BYTE 100000h DUP(?)
 
 .code
 
@@ -11,17 +12,53 @@ syscall_idx PROC
     mov r10, rcx    ; 1st arg goes on r10
     mov eax, r12d   ; syscall index onto eax
 
+    ; store some shit I need to restore later
+    mov [rsp+8h], rsi
+    mov [rsp+10h], rdi
+    mov [rsp+18h], r12
+    mov [rsp+20h], r13
+
+    ; replace RSP with some fake buffer
+    lea r13, [fakeStack+50000h]
+    xchg rsp, r13               ; pivot
+
+    ; copy data from old RSP to fake buffer
+    ; TODO: only copy data necessary for syscall?
+    lea rcx, [r13+200h]         ; stop copying here (exclusive)
+    lea rsi, [r13+28h]          ; copy source
+    lea rdi, [rsp+28h]          ; copy destination
+copy_loop:
+    cmp rsi, rcx                ; compare source addr with high address
+    je end_copy                 ; if they equal, stop copying
+    movsq                       ; move qword from source to dest
+    jmp copy_loop
+end_copy:
+
+    ; TODO: set RET address to some ROP chain
+
+do_syscall:
+    ; TODO: jmp/ret
+    syscall
+    xchg rsp, r13               ; restore our old RSP
+
+    ; restore some shit i saved earlier
+    mov rsi, [rsp+8h]
+    mov rdi, [rsp+10h]
+    mov r12, [rsp+18h]
+    mov r13, [rsp+20h]
+
+    ret
     ; if ntSyscall is set, we jmp to it
     ; instead of do our own syscall
-    mov rbx, ntSyscall
-    test rbx, rbx
-    jz default_syscall
+    ; mov rbx, ntSyscall
+    ; test rbx, rbx
+    ; jz default_syscall
 
-    jmp ntSyscall   ; perform syscall from redirector
+    ; jmp ntSyscall   ; perform syscall from redirector
 
-default_syscall:
-    syscall
-    ret
+    ; default_syscall:
+    ; syscall
+    ; ret
 syscall_idx ENDP
 
 ; set target `syscall; ret;` for jmp
