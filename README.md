@@ -16,7 +16,6 @@ Without ShadowJmp instrumentation callbacks see:
 STACK DUMP:
         [19344] stack[0]: 0x00007FF74A98586D syscall_idx                <--- BAD
         [19344] stack[1]: 0x00007FF74A9858F1 make_syscall               <--- BAD
-        [19344] stack[2]: 0x00000030381EFB10
 ```
 
 After ShadowJmp instrumentation callbacks see:
@@ -25,12 +24,24 @@ After ShadowJmp instrumentation callbacks see:
 STACK DUMP:
         [30920] stack[0]: 0x00007FF9E006FB34 NtClearEvent               <--- GOOD
         [30920] stack[1]: 0x00007FF7DF3D58F1 make_syscall               <--- BAD
-        [30920] stack[2]: 0x00000044EF8FF540
 ```
 
 ### Pivot - Before & After
 
-TODO
+Without ShadowJmp instrumentation callbacks see:
+
+```
+STACK DUMP:
+        [19344] stack[0]: 0x00007FF74A98586D syscall_idx                <--- BAD
+        [19344] stack[1]: 0x00007FF74A9858F1 make_syscall               <--- BAD
+```
+
+After ShadowJmp instrumentation callbacks see:
+
+```
+STACK DUMP:
+        [41868] stack[0]: 0x00007FF7F325361E syscall_idx                <--- BAD
+```
 
 ### ShadowJmp - Before & After
 

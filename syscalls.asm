@@ -19,11 +19,12 @@ syscall_idx PROC
     mov [rsp+20h], r13
 
     ; replace RSP with some fake buffer
+    ; TODO: use a proper value for this...
+    ; TODO: make a propper stack buffer
     lea r13, [fakeStack+90000h]
     xchg rsp, r13               ; pivot
 
     ; copy data from old RSP to fake buffer
-    ; TODO: only copy data necessary for syscall?
     mov rcx, rbx                ; stop copying here (exclusive)
     lea rsi, [r13+28h]          ; copy source
     lea rdi, [rsp+28h]          ; copy destination
@@ -34,10 +35,10 @@ copy_loop:
     jmp copy_loop
 end_copy:
 
-    ; TODO: set RET address to some ROP chain
+    ; part4: set RET address to some ROP chain
 
 do_syscall:
-    ; TODO: jmp/ret
+    ; part4: jmp/ret
     syscall
     xchg rsp, r13               ; restore our old RSP
 
