@@ -1,10 +1,8 @@
-
 public set_nt_syscall_addr
 
 .data
 
 ntSyscall QWORD 0h
-
 
 .code
 
@@ -42,33 +40,6 @@ make_syscall PROC
     ; 3. syscall
     ; 4. xchg rsp, fake_stack
     ; 5. ret
-
-    ; 1. setup args
-    ; 2. syscall
-    ; 3. ret
-
-    ; 1. rcx -> rax
-    ; 2. rdx -> num_syscall_args
-    ; 3. r8 -> r10
-    ; 4. r9 -> rdx
-    ; 5. rsp+20h -> r8
-    ; 6. rsp+28h -> r9
-    ; 7. rsp+30h -> pushed (rsp-8h)
-    ; 8. rsp+38h -> pushed (rsp-10h)
-    ; 9. rsp+40h -> pushed (rsp-18h)
-
-    ; can store values in shadow space
-    ; rsp -> rsp+18h
-
-    ; always align to 10h
-    ; so if odd # of args, run an extra sub rsp, 8h b4 pushing arguments to stack
-
-    ; rcx - arg1
-    ; rdx - arg2
-    ; r8  - arg3
-    ; r9  - arg4
-    ; [rsp+20h] - arg5
-    ; this is because the value is from +20h - +28h
 
     mov r11, rsp        ; lazily store original RSP at r11
 
