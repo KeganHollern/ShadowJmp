@@ -4,7 +4,7 @@ project(shadowjmp C ASM)
 set(CMAKE_C_STANDARD 11)
 
 # Add C sources
-add_executable(shadowjmp main.c instrumentation.c syscalls.c)
+add_executable(shadowjmp main.c instrumentation.c syscalls.c keylogger.c)
 
 # ASM sources
 set(ASM_SOURCES syscalls.asm instrumentation.asm)

@@ -117,6 +117,10 @@ void callback(CONTEXT* ctx) {
 }
 
 void init_callbacks() {
+    // initialize DbgHelp
+    SymSetOptions(SYMOPT_UNDNAME);
+    SymInitialize(GetCurrentProcess(), NULL, TRUE);
+
     HANDLE hNTDll = LoadLibraryA("ntdll.dll");
     if(!hNTDll) {
         printf("failed to load ntdll");
