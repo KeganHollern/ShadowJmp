@@ -115,7 +115,11 @@ do_syscall:
     sub rsp, 20h
 
     ; perform syscall
-    call syscall_idx
+    ;call syscall_idx
+    sub rsp, 8h
+    mov r10, rcx
+    syscall
+    add rsp, 8h
 
     ; clean shadowpool
     add rsp, 20h
