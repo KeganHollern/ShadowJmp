@@ -72,7 +72,6 @@ set_nt_syscall_addr PROC
 set_nt_syscall_addr ENDP
 
 
-
 make_syscall PROC
     mov r11, rsp        ; lazily store original RSP at r11
 
