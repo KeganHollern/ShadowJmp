@@ -1,6 +1,8 @@
 .data
 
 ntSyscall QWORD 0h
+ropGadget QWORD 0h
+
 fakeStack BYTE 100000h DUP(?)
 
 .code
@@ -8,15 +10,9 @@ fakeStack BYTE 100000h DUP(?)
 ; call any arbitrary syscall
 ; pass syscall index in r12d
 syscall_idx PROC
-    xor rax, rax    ; clear rax
-    mov r10, rcx    ; 1st arg goes on r10
-    mov eax, r12d   ; syscall index onto eax
-
-    ; store some shit I need to restore later
-    mov [rsp+8h], rsi
-    mov [rsp+10h], rdi
-    mov [rsp+18h], r12
-    mov [rsp+20h], r13
+    xor rax, rax                ; clear rax
+    mov r10, rcx                ; 1st arg goes on r10
+    mov eax, r12d               ; syscall index onto eax
 
     ; replace RSP with our fake stack buffer
     ; is this sussy?
@@ -34,32 +30,40 @@ copy_loop:
     jmp copy_loop
 end_copy:
 
-    ; part4: set RET address to some ROP chain
-
 do_syscall:
-    ; part4: jmp/ret
-    syscall
-    xchg rsp, r13               ; restore our old RSP
+    mov r12, ntSyscall
+    test r12, r12
+    jz default_syscall          ; JMP not configured- do manual syscall
 
-    ; restore some shit i saved earlier
-    mov rsi, [rsp+8h]
-    mov rdi, [rsp+10h]
-    mov r12, [rsp+18h]
-    mov r13, [rsp+20h]
+    mov r12, ropGadget
+    test r12, r12
+    jz default_syscall          ; ROP not configured- do manual syscall
+
+    mov [rsp], r12              ; install ROP
+
+    jmp ntSyscall               ; JMP into NtDll & ROP restore RSP
+
+default_syscall:
+    syscall                     ; do manual syscall
+    xchg rsp, r13               ; restore RSP
 
     ret
-    ; if ntSyscall is set, we jmp to it
-    ; instead of do our own syscall
-    ; mov rbx, ntSyscall
-    ; test rbx, rbx
-    ; jz default_syscall
-
-    ; jmp ntSyscall   ; perform syscall from redirector
-
-    ; default_syscall:
-    ; syscall
-    ; ret
 syscall_idx ENDP
+
+; this is an example gadget
+; in real world we'd make a real
+; rop chain to restore rsp
+test_rop_gadget PROC
+    xchg rsp, r13
+    ret
+test_rop_gadget ENDP
+
+
+; set RET target for rop gadget
+set_rop_gadget PROC
+    mov ropGadget, rcx
+    ret
+set_rop_gadget ENDP
 
 ; set target `syscall; ret;` for jmp
 set_nt_syscall_addr PROC
@@ -70,12 +74,6 @@ set_nt_syscall_addr ENDP
 
 
 make_syscall PROC
-    ; 1. setup fake stack & args
-    ; 2. xchg rsp, fake_stack
-    ; 3. syscall
-    ; 4. xchg rsp, fake_stack
-    ; 5. ret
-
     mov r11, rsp        ; lazily store original RSP at r11
 
     push rbx
@@ -86,38 +84,33 @@ make_syscall PROC
     push r13
     push r14
     push r15
-    ; RSP-40h
+
+    mov rbx, rsp        ; store RSP - used for stack pivot copying
 
     mov r13, rdx        ; r13 => number of args for the syscall
     mov rax, rcx        ; rax => syscall index
 
-
-    mov rbx, rsp        ; store stack frame in rbx ? (pivot?)
-
     ; if 0 args, do syscall immediately
     cmp r13, 1
     jl do_syscall
-
     mov rcx, r8         ; setup 1st arg
 
     ; if 1 arg, do syscall
     cmp r13, 2
     jl do_syscall
-
     mov rdx, r9         ; setup 2nd arg
 
     ; if 2 arg, do syscall
     cmp r13, 3
     jl do_syscall
-
     mov r8, [r11+28h]   ; setup 3rd arg
 
     ; if 3 arg, do syscall
     cmp r13, 4
     jl do_syscall
-
     mov r9, [r11+30h]   ; setup 4th arg
 
+    ; if 4 arg, do syscall
     cmp r13, 5
     jl do_syscall
 
@@ -151,8 +144,20 @@ do_syscall:
     ; shadow pool
     sub rsp, 20h
 
+     ; store some shit I need to restore later
+    mov [rsp], rsi
+    mov [rsp+8h], rdi
+    mov [rsp+10h], r12
+    mov [rsp+18h], r13
+
     ; perform syscall
     call syscall_idx
+
+    ; restore some shit i saved earlier
+    mov rsi, [rsp]
+    mov rdi, [rsp+8h]
+    mov r12, [rsp+10h]
+    mov r13, [rsp+18h]
 
     ; clean shadowpool
     add rsp, 20h

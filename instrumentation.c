@@ -9,6 +9,8 @@
 
 #include "instrumentation.h"
 
+// More info: https://winternl.com/detecting-manual-syscalls-from-user-mode/
+
 typedef NTSTATUS (NTAPI *nt_set_information_process_t)(HANDLE, PROCESS_INFORMATION_CLASS, PVOID, ULONG);
 typedef void (*bridge_function_t)();
 struct process_instrumentation_callback_info_t {

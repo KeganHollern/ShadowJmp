@@ -15,6 +15,7 @@ typedef struct syscall_values {
 } syscall_values;
 
 // during injection these values will be overwritten with correct syscall numbers
+// TODO:
 syscall_values values = {
         0xABCCDEFF,
         199, // kegan is lazy and is hard coding his own syscall numbers
@@ -24,6 +25,8 @@ syscall_values values = {
 };
 
 extern void set_nt_syscall_addr(uint8_t * ntdll_syscall_addr);
+extern void set_rop_gadget(uint8_t * xchg_rsp_r13_addr);
+extern void test_rop_gadget();
 
 // generic syscall maker
 extern NTSTATUS make_syscall(uint32_t syscall_id, uint32_t num_args, ...);
@@ -81,6 +84,7 @@ void demo_syscall() {
     void* syscall = get_syscall_addr();
     printf("init safe syscall @ 0x%p\n", syscall);
     set_nt_syscall_addr(syscall);
+    set_rop_gadget((uint8_t*)test_rop_gadget);
 
 
     printf("testing syscall...\n");
