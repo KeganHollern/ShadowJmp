@@ -24,7 +24,7 @@ syscall_idx PROC
 
     ; copy data from old RSP to fake buffer
     ; TODO: only copy data necessary for syscall?
-    mov rcx, r15 ; stop copying here (exclusive)
+    mov rcx, rbx                ; stop copying here (exclusive)
     lea rsi, [r13+28h]          ; copy source
     lea rdi, [rsp+28h]          ; copy destination
 copy_loop:
@@ -92,7 +92,7 @@ make_syscall PROC
     mov rax, rcx        ; rax => syscall index
 
 
-    mov r15, rsp        ; store stack frame in r15 ? (pivot?)
+    mov rbx, rsp        ; store stack frame in rbx ? (pivot?)
 
     ; if 0 args, do syscall immediately
     cmp r13, 1
