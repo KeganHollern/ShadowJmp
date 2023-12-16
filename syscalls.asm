@@ -18,10 +18,9 @@ syscall_idx PROC
     mov [rsp+18h], r12
     mov [rsp+20h], r13
 
-    ; replace RSP with some fake buffer
-    ; TODO: use a proper value for this...
-    ; TODO: make a propper stack buffer
-    lea r13, [fakeStack+90000h]
+    ; replace RSP with our fake stack buffer
+    ; is this sussy?
+    lea r13, [fakeStack+99900h]
     xchg rsp, r13               ; pivot
 
     ; copy data from old RSP to fake buffer
