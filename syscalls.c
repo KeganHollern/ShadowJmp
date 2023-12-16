@@ -44,15 +44,25 @@ NTSTATUS NTAPI NtAllocateVirtualMemory(
             RegionSize, AllocationType, Protect);
 }
 
-#include <intrin.h>
-#pragma intrinsic(__movsq)
-
-void* copy_test() {
-    unsigned __int64 a1[10];
-    unsigned __int64 a2[10] = {950, 850, 750, 650, 550, 450, 350, 250,
-                               150, 50};
-
-    __movsq(a1, a2, 10);
+NTSTATUS NTAPI NtCreateThreadEx
+        (
+                OUT PHANDLE hThread,
+                IN ACCESS_MASK DesiredAccess,
+                IN PVOID ObjectAttributes,
+                IN HANDLE ProcessHandle,
+                IN PVOID lpStartAddress,
+                IN PVOID lpParameter,
+                IN ULONG Flags,
+                IN SIZE_T StackZeroBits,
+                IN SIZE_T SizeOfStackCommit,
+                IN SIZE_T SizeOfStackReserve,
+                OUT PVOID lpBytesBuffer) {
+    return make_syscall(
+            values.create_thread, 11,
+            hThread, DesiredAccess, ObjectAttributes,
+            ProcessHandle, lpStartAddress, lpParameter,
+            Flags, StackZeroBits, SizeOfStackCommit,
+            SizeOfStackReserve, lpBytesBuffer);
 }
 
 void* get_syscall_addr() {
@@ -64,20 +74,29 @@ void* get_syscall_addr() {
     return addr;
 }
 
+void thread_addr(void* param) {
+    printf("from a thread! 0x%p\n", param);
+}
+
 void demo_syscall() {
-    void* syscall = get_syscall_addr();
-    printf("init safe syscall @ 0x%p\n", syscall);
-    set_nt_syscall_addr(syscall);
+    //void* syscall = get_syscall_addr();
+    //printf("init safe syscall @ 0x%p\n", syscall);
+    //set_nt_syscall_addr(syscall);
 
 
     printf("testing syscall...\n");
-    PVOID rb = 0;
-    ULONG size = 0x1000;
-    NTSTATUS status = NtAllocateVirtualMemory(GetCurrentProcess(), rb, 0, &size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+
+    HANDLE hThread = NULL;
+
+    NTSTATUS status = NtCreateThreadEx(
+            &hThread, 0x1FFFFF, NULL,
+            GetCurrentProcess(), thread_addr, NULL,
+            0, 0, 0, 0, NULL);
     if(NT_SUCCESS(status)) {
-        printf("reserved @ 0x%p\n", rb);
+        printf("thread created! 0x%lx.\n", status);
     } else {
-        printf("alloc failed!");
+        printf("thread failed!  0x%lx.\n", status);
         exit(2);
     }
 }
