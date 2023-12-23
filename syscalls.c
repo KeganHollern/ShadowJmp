@@ -1,7 +1,10 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <Windows.h>
 #include <winternl.h>
+#include <assert.h>
+
 
 #include "syscalls.h"
 
@@ -22,11 +25,17 @@ extern void set_rop_gadget(uint8_t * xchg_rsp_r13_addr);
 extern void test_rop_gadget();
 
 void* get_syscall_addr() {
-    char* addr = GetProcAddress(LoadLibraryA("ntdll.dll"),"ZwClearEvent");
-    // holy this is so mega lazy
-    // this isn't good
-    // TODO: actual find pattern
-    while(*addr != 0x0F) addr++;
+    HMODULE hNtdll = LoadLibraryA("ntdll.dll");
+    unsigned char* addr = (unsigned char*)GetProcAddress(hNtdll,"ZwClearEvent");
+    assert(addr && "failed to find ZwClearEvent in ntdll");
+
+    unsigned char pattern[3] = {
+            0x0F, 0x05, //  syscall;
+            0xC3        //  ret;
+    };
+    while(addr && (addr[0] != pattern[0] || addr[1] != pattern[1] || addr[2] != pattern[2]))
+        addr++;
+
     return addr;
 }
 

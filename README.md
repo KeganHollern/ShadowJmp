@@ -1,13 +1,13 @@
 # Shadow Jmp
 
-Manual Syscalls for Evasion of EDRs and Anticheats
+Manual System Calls for Evasion of EDRs and Anticheats
 
 ## Goals
 
 1. Avoid user mode hooks on Windows libraries.
 2. Obscure caller from instrumentation callbacks.
 
-> https://winternl.com/detecting-manual-syscalls-from-user-mode/
+> See: https://winternl.com/detecting-manual-syscalls-from-user-mode/
 
 ## Technique
 

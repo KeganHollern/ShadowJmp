@@ -6,6 +6,7 @@
 #include <winternl.h>
 #include <winnt.h>
 #include <DbgHelp.h>
+#include <assert.h>
 
 #include "instrumentation.h"
 
@@ -122,22 +123,13 @@ void init_callbacks() {
     SymInitialize(GetCurrentProcess(), NULL, TRUE);
 
     HANDLE hNTDll = LoadLibraryA("ntdll.dll");
-    if(!hNTDll) {
-        printf("failed to load ntdll");
-        exit(1);
-    }
+    assert(hNTDll && "failed to load ntdll");
 
     nt_set_information_process_t nt_set_information_process = (nt_set_information_process_t)GetProcAddress(hNTDll, "NtSetInformationProcess");
-    if(!nt_set_information_process) {
-        printf("failed to find NtSetInformationProcess");
-        exit(1);
-    }
+    assert(nt_set_information_process && "failed to find NtSetInformationProcess");
 
     tlsIndex = TlsAlloc();
-    if(tlsIndex == TLS_OUT_OF_INDEXES) {
-        printf("could not allocate TLS index");
-        exit(1);
-    }
+    assert(tlsIndex != TLS_OUT_OF_INDEXES && "could not allocate TLS index");
 
     struct process_instrumentation_callback_info_t info;
     info.version = 0;  // x64 mode
@@ -149,11 +141,7 @@ void init_callbacks() {
     NTSTATUS status = nt_set_information_process(GetCurrentProcess(),
                                                  (PROCESS_INFORMATION_CLASS)(0x28),
                                                  &info, sizeof(info));
-
-    if(!NT_SUCCESS(status)) {
-        printf("failed to set callback");
-        exit(1);
-    }
+    assert(NT_SUCCESS(status) && "failed to set callback");
 
     printf("callbacks set!\n");
 }
